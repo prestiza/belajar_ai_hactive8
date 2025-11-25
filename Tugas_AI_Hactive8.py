@@ -58,7 +58,7 @@ def upload_nilai(label="Upload nilai siswa (Excel)"):
 if option == "Guru":
     # Guru wajib upload jika belum ada, dan langsung lanjut jika sudah ada
     if "participant_resume" not in st.session_state:
-        upload_nilai("Masukkan Excel Hasil Ujian","guru_upload")
+        upload_nilai("Masukkan Excel Hasil Ujian")
     # analisa/flow berikutnya di sini
     nilai = st.session_state["participant_resume"]
     data_nilai_str = nilai.to_markdown(index=False)
@@ -125,3 +125,4 @@ messages_history.append(response)
 # Tampilkan langsung jawaban LLM
 with st.chat_message("AI"):
     st.markdown(response.content)
+
