@@ -43,47 +43,55 @@ if "participant_status" not in st.session_state:
 option = st.session_state["participant_status"]
 
 
-
-
-# Fungsi upload nilai, digunakan oleh Guru maupun Ortu saat Call Guru
-def upload_nilai(label="Upload nilai siswa (Excel)"):
-    uploaded_ujian = st.file_uploader(label, type=["xls", "xlsx"], key="fileuploader")
+# Fungsi upload nilai
+def upload_nilai(label, key):
+    uploaded_ujian = st.file_uploader(label, type=["xls", "xlsx"], key=key)
     if uploaded_ujian:
         hasil_ujian = pd.read_excel(uploaded_ujian)
         st.session_state["participant_resume"] = hasil_ujian
-        st.success("Nilai siswa berhasil diupload!")
+        st.success("Nilai siswa berhasil diupload.")
+        st.session_state["call_guru_triggered"] = False  # Reset flag setelah upload!
         st.rerun()
     st.stop()
 
-if option == "Guru":
-    # Guru wajib upload jika belum ada, dan langsung lanjut jika sudah ada
-    if "participant_resume" not in st.session_state:
-        upload_nilai("Masukkan Excel Hasil Ujian")
-    # analisa/flow berikutnya di sini
-    nilai = st.session_state["participant_resume"]
-    data_nilai_str = nilai.to_markdown(index=False)
-    analisa_nilai = ("Analisa dari file upload. Nama2 mata pelajaran yang rata2nya dibawah 50, nama2 siswa yang rata2 nilainya dibawah 50, apa yang harus diperbaiki oleh siswa berdasarkan evaluasi kualitatif guru dan provide analysis dalam bullet points tidak lebih dari 20 baris")
-    system_message = SystemMessage(analisa_nilai+data_nilai_str)
-    human_message = HumanMessage("Tolong lakukan analisa seperti instruksi analisa_nilai")
-    messages_history = (system_message, human_message)
-    response = llm.invoke(messages_history)
-    st.markdown(response.content)
-
-elif option == "Ortu":
-    if "participant_resume" in st.session_state:
-        # LANGSUNG tampilkan hasil & fitur lanjutan
-        st.success("Nilai siswa sudah tersedia!")
+# --- Pengecekan awal: jika sudah ada data, langsung ke next step ---
+if "participant_resume" in st.session_state:
+    if option == "Guru":
+        # analisa/flow berikutnya di sini
         nilai = st.session_state["participant_resume"]
-        # analisa/fitur berikutnya di sini
-    else:
-        st.warning("Nilai belum tersedia, silakan kontak Guru dan minta untuk mengupload nilai.")
-        if st.button("Call Guru"):
-            upload_nilai("Guru upload nilai siswa (Excel)")
+        data_nilai_str = nilai.to_markdown(index=False)
+        analisa_nilai = ("Analisa dari file upload. Nama2 mata pelajaran yang rata2nya dibawah 50, nama2 siswa yang rata2 nilainya dibawah 50, apa yang harus diperbaiki oleh siswa berdasarkan evaluasi kualitatif guru dan provide analysis dalam bullet points tidak lebih dari 20 baris")
+        system_message = SystemMessage(analisa_nilai+data_nilai_str)
+        human_message = HumanMessage("Tolong lakukan analisa seperti instruksi analisa_nilai")
+        messages_history = (system_message, human_message)
+        response = llm.invoke(messages_history)
+        st.markdown(response.content)
+    if option == "Ortu":
+        nilai = st.session_state["participant_resume"]
+        st.success("Nilai siswa sudah tersedia!")
 
+if "participant_resume" not in st.session_state:
+    # --- Alur Ortu ---
+    if option == "Ortu":
+        # Flag trigger upload
+        if "call_guru_triggered" not in st.session_state:
+            st.session_state["call_guru_triggered"] = False
 
+        if not st.session_state["call_guru_triggered"]:
+            st.warning("Nilai belum tersedia, silakan kontak Guru dan minta upload nilai.")
+            if st.button("Call Guru"):
+                st.session_state["call_guru_triggered"] = True
+                st.rerun()
+            st.stop()
 
+        # Setelah Call Guru ditekan (flag aktif), tampilkan uploader
+        if st.session_state["call_guru_triggered"]:
+            upload_nilai("Guru upload nilai siswa (Excel)", "callguru_upload")
 
-
+    # --- Alur Guru ---
+    if option == "Guru":
+        upload_nilai("Masukkan Excel Hasil Ujian", "guru_upload")
+    st.stop()
 
 
 #Masukan Nama Siswa
@@ -125,4 +133,3 @@ messages_history.append(response)
 # Tampilkan langsung jawaban LLM
 with st.chat_message("AI"):
     st.markdown(response.content)
-
